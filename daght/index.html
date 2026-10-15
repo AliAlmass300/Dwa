@@ -222,7 +222,7 @@ function drawBp(){
   h+='<div id="err" class="alert low" hidden></div><div class="actions"><button class="btn" data-bpsave="1" style="flex:1">سجل</button>'+(B.isNew?'':'<button class="btn danger" data-bpdel="1">'+(B.confirmDel?"متأكدة؟ ورك باش تمسح":"مسح")+'</button>')+'</div></div>';
   sheet.innerHTML=h;
   for(const k of["sys","dia","pulse"])wheelInit(k);bpLive()}
-const BPNOTES=["فالصباح","فالليل","قبل الدوا","من بعد الدوا","عيانة","مقلقة","من بعد المشي","صداع"];
+const BPNOTES=["فالصباح","فالليل","قبل الدوا","من بعد الدوا","عيانة","مقلقة","من بعد التريني","من بعد المشي","صداع"];
 const WR={sys:[70,250],dia:[40,150],pulse:[40,180]},WH=40;
 function wheel(k){const[a,b]=WR[k];let h='<div class="wheel" id="w-'+k+'" role="listbox" aria-label="'+k+'"><div class="sp"></div>'+(k==="pulse"?'<div class="wi" data-v="">—</div>':'');
   for(let v=a;v<=b;v++)h+='<div class="wi" data-v="'+v+'">'+v+'</div>';return h+'<div class="sp"></div></div>'}
