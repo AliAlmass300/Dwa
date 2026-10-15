@@ -267,6 +267,14 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||
   if(b.dataset.bpshare){bpShare();return}
   if(b.dataset.bpcsv){const rows=bpRows();if(!rows.length)return toast("ما كاين والو.");saveFile("daght-ILY-"+todayIso()+".csv",new Blob([bpCsv(rows)],{type:"text/csv"}));return}});
 window.addEventListener("storage",e=>{if(e.key==="dwa.bp"){try{S.bp=JSON.parse(e.newValue||"[]")}catch(err){}render()}});
-render();
+/* simple unlock: the code is asked once per phone, then remembered (only its hash is in the page) */
+const LOCK="e7042ac7d09c7bc41c8cfa5749e41858f6980643bc0db1a83cc793d3e24d3f77";
+async function sha(t){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function unlocked(){try{return localStorage.getItem("daght.ok")===LOCK}catch(e){return false}}
+function lockScreen(){document.getElementById("fab").hidden=true;
+  app.innerHTML='<div class="empty" style="margin-top:20vh"><div style="font-size:2rem">🔒</div><h2>مرحبا ILY 💎♥️</h2><label class="f" for="pw">دخلي الكود</label><input class="inp" id="pw" type="password" inputmode="numeric" autocomplete="current-password" style="text-align:center;font-size:1.2rem"><button class="btn" id="pwgo">دخول</button><div class="hint" id="pwerr"></div></div>';
+  const go=async()=>{const v=document.getElementById("pw").value.trim();if(await sha(v)===LOCK){try{localStorage.setItem("daght.ok",LOCK)}catch(e){}render()}else document.getElementById("pwerr").textContent="الكود غالط، عاودي."};
+  document.getElementById("pwgo").onclick=go;document.getElementById("pw").onkeydown=e=>{if(e.key==="Enter")go()}}
+if(unlocked())render();else lockScreen();
 </script>
 </body></html>
