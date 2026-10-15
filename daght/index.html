@@ -68,10 +68,13 @@ label.f{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
 .bpr .bpv{font-size:1.45rem}
 .bpr .hint{overflow-wrap:anywhere}
 .chart{width:100%;height:auto;display:block;direction:ltr}
-.chart .g{stroke:var(--line);stroke-width:1}.chart .lim{stroke:var(--bad);stroke-width:1;stroke-dasharray:4 4;opacity:.6}
-.chart .s{stroke:var(--accent);fill:none;stroke-width:2.5}.chart .d{stroke:var(--gold);fill:none;stroke-width:2.5}
+.chart .g{stroke:var(--line);stroke-width:.6}.chart .lim{stroke:var(--bad);stroke-width:.8;stroke-dasharray:3 4;opacity:.45}
+.chart .s,.chart .d{fill:none;stroke-width:1.4;stroke-linejoin:round;stroke-linecap:round}.chart .s{stroke:var(--accent)}.chart .d{stroke:var(--gold)}
 .chart .sp{fill:var(--accent)}.chart .dp{fill:var(--gold)}
-.chart text{font-size:11px;fill:var(--muted);font-family:var(--body)}
+.chart .col{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.2}.chart .col.hi{fill:var(--bad-soft);stroke:var(--bad)}
+.chart text{font-size:9.5px;fill:var(--muted);font-family:var(--body)}.chart .cv{font-size:8.5px;fill:var(--ink)}
+.cseg{display:inline-grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:999px;overflow:hidden;justify-self:start}
+.cseg button{border:0;background:var(--surface);padding:4px 12px;font-size:.8rem;color:var(--muted)}.cseg button.on{background:var(--accent);color:#fff}
 .seg.r4{grid-template-columns:repeat(4,1fr)}
 .big2{font-size:1.6rem;text-align:center;font-variant-numeric:tabular-nums;direction:ltr}
 .live{display:flex;align-items:center;justify-content:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
@@ -106,7 +109,7 @@ label.f{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
 .rep th{background:#f0f0f0;font-size:11px;font-weight:600}
 .rep td.n{text-align:start}
 .rep .hi{font-weight:700;color:#b00020}
-.rep .chart text{fill:#444}.rep .chart .g{stroke:#ddd}.rep .chart .s{stroke:#111}.rep .chart .d{stroke:#888}.rep .chart .sp{fill:#111}.rep .chart .dp{fill:#888}.rep .chart .lim{stroke:#b00020}
+.rep .chart .col{fill:#eee;stroke:#111}.rep .chart .col.hi{fill:#f6d5da;stroke:#b00020}.rep .chart .cv{fill:#111}.rep .chart text{fill:#444}.rep .chart .g{stroke:#ddd}.rep .chart .s{stroke:#111}.rep .chart .d{stroke:#888}.rep .chart .sp{fill:#111}.rep .chart .dp{fill:#888}.rep .chart .lim{stroke:#b00020}
 .rep .key{display:flex;gap:14px;font-size:11px;color:#444;margin-top:4px}
 .rep .key i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-inline-end:4px}
 @media print{
@@ -137,8 +140,8 @@ const todayIso=()=>iso(new Date());
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtDay=s=>{const d=parse(s);return DAYS[d.getDay()]+" "+d.getDate()+" "+MONTHS[d.getMonth()]};
 const T=t=>{if(!t)return"";const[h,m]=t.split(":").map(Number);return (h%12||12)+":"+pad(m)+" "+(h<12?"ص":"م")};
-const S={view:"bp",bp:[],bpRange:30,db:null,dl:null,local:true};
-try{const r=localStorage.getItem("dwa.bprange");if(r!=null)S.bpRange=+r}catch(e){}
+const S={chart:"bar",view:"bp",bp:[],bpRange:30,db:null,dl:null,local:true};
+try{const r=localStorage.getItem("dwa.bprange");if(r!=null)S.bpRange=+r;S.chart=localStorage.getItem("daght.chart")||"bar"}catch(e){}
 try{S.bp=JSON.parse(localStorage.getItem("dwa.bp")||"[]")}catch(e){S.bp=[]}
 const app=document.getElementById("app"),sheet=document.getElementById("sheet");
 function render(){document.getElementById("fab").hidden=S.view!=="bp";(S.view==="bprep"?renderBpReport:renderBp)();
@@ -171,20 +174,27 @@ function bpStats(rows){const days=bpDays(rows);if(!days.length)return null;
   const mean=k=>{const v=days.map(d=>d.avg[k]).filter(x=>typeof x==="number");return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null};
   return{days,sys:mean("sys"),dia:mean("dia"),pulse:mean("pulse"),n:rows.length,hi:rows.filter(bpHigh).length,slots:[0,1,2].map(i=>bpAvg(rows.filter(r=>slotOf(r.time)===i)))}}
 const bpStr=a=>a?a.sys+"/"+a.dia:"";
-function bpChart(rows){ // one point per day (the day's average); each single reading is a faint dot on that day
-  const days=bpDays(rows);if(rows.length<2)return"";
-  const W=320,H=150,L=30,R=8,Tp=8,B=22;
-  const vals=rows.flatMap(x=>[x.sys,x.dia]),lo=Math.min(50,Math.floor(Math.min(...vals)/10)*10),hi=Math.max(160,Math.ceil(Math.max(...vals)/10)*10);
-  const X=i=>L+(W-L-R)*(days.length===1?.5:i/(days.length-1)),Y=v=>Tp+(H-Tp-B)*(1-(v-lo)/(hi-lo));
-  let g="";for(let v=lo;v<=hi;v+=hi-lo>120?40:20)g+='<line class="g" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text x="'+(L-4)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>';
-  g+='<line class="lim" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(140)+'" y2="'+Y(140)+'"/><line class="lim" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(90)+'" y2="'+Y(90)+'"/>';
-  const few=days.length<=45;
-  const line=(k,c)=>(few?days.map((d,i)=>d.rows.length>1?d.rows.map(r=>'<circle class="'+c+'p" opacity=".3" cx="'+X(i).toFixed(1)+'" cy="'+Y(r[k]).toFixed(1)+'" r="2"/>').join(""):"").join(""):"")+
-    (days.length>1?'<polyline class="'+c+'" points="'+days.map((d,i)=>X(i).toFixed(1)+","+Y(d.avg[k]).toFixed(1)).join(" ")+'"/>':"")+
-    (few?days.map((d,i)=>'<circle class="'+c+'p" cx="'+X(i).toFixed(1)+'" cy="'+Y(d.avg[k]).toFixed(1)+'" r="3"/>').join(""):"");
-  g+=line("sys","s")+line("dia","d");
-  g+='<text x="'+L+'" y="'+(H-6)+'">'+frDate(days[0].date).slice(0,5)+'</text>'+(days.length>1?'<text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end">'+frDate(days[days.length-1].date).slice(0,5)+'</text>':'');
+function bpChart(rows){ // per day: line = daily averages (faint dots = single readings); bars = a column from diastolic up to systolic
+  const days=bpDays(rows);if(rows.length<2)return"";const bar=S.chart==="bar";
+  const W=320,H=160,L=28,R=10,Tp=10,B=22;
+  const vals=rows.flatMap(x=>[x.sys,x.dia]),lo=Math.min(60,Math.floor(Math.min(...vals)/20)*20),hi=Math.max(160,Math.ceil(Math.max(...vals)/20)*20);
+  const n=days.length,step=(W-L-R)/Math.max(n,1),X=i=>bar||n>1?(bar?L+step*(i+.5):L+(W-L-R)*i/(n-1)):L+(W-L-R)/2,Y=v=>Tp+(H-Tp-B)*(1-(v-lo)/(hi-lo)),f=v=>v.toFixed(1);
+  let g="";for(let v=lo;v<=hi;v+=20)g+='<line class="g" x1="'+L+'" x2="'+(W-R)+'" y1="'+f(Y(v))+'" y2="'+f(Y(v))+'"/><text x="'+(L-5)+'" y="'+f(Y(v)+3.5)+'" text-anchor="end">'+v+'</text>';
+  g+='<line class="lim" x1="'+L+'" x2="'+(W-R)+'" y1="'+f(Y(140))+'" y2="'+f(Y(140))+'"/><line class="lim" x1="'+L+'" x2="'+(W-R)+'" y1="'+f(Y(90))+'" y2="'+f(Y(90))+'"/>';
+  if(bar){const bw=Math.max(3,Math.min(16,step*.55));
+    days.forEach((d,i)=>{const x=X(i),y1=Y(d.avg.sys),y2=Y(d.avg.dia),hiD=bpHigh(d.avg);
+      g+='<rect class="col'+(hiD?" hi":"")+'" x="'+f(x-bw/2)+'" y="'+f(y1)+'" width="'+f(bw)+'" height="'+f(Math.max(2,y2-y1))+'" rx="'+f(Math.min(bw/2,4))+'"/>';
+      if(n<=14)g+='<text class="cv" x="'+f(x)+'" y="'+f(y1-4)+'" text-anchor="middle">'+d.avg.sys+'</text><text class="cv" x="'+f(x)+'" y="'+f(y2+11)+'" text-anchor="middle">'+d.avg.dia+'</text>'})}
+  else{const few=n<=45;
+    const line=(k,c)=>(few?days.map((d,i)=>d.rows.length>1?d.rows.map(r=>'<circle class="'+c+'p" opacity=".25" cx="'+f(X(i))+'" cy="'+f(Y(r[k]))+'" r="1.6"/>').join(""):"").join(""):"")+
+      (n>1?'<polyline class="'+c+'" points="'+days.map((d,i)=>f(X(i))+","+f(Y(d.avg[k]))).join(" ")+'"/>':"")+
+      (few?days.map((d,i)=>'<circle class="'+c+'p" cx="'+f(X(i))+'" cy="'+f(Y(d.avg[k]))+'" r="2.2"/>').join(""):"");
+    g+=line("sys","s")+line("dia","d")}
+  const lbl=(i,anchor)=>'<text x="'+f(X(i))+'" y="'+(H-6)+'" text-anchor="'+anchor+'">'+frDate(days[i].date).slice(0,5)+'</text>';
+  if(bar&&n<=8)days.forEach((d,i)=>g+=lbl(i,"middle"));else{g+=lbl(0,bar?"middle":"start");if(n>1)g+=lbl(n-1,bar?"middle":"end")}
   return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="رسم ديال الضغط">'+g+'</svg>'}
+function chartKey(){return S.chart==="bar"?'<span><i style="background:var(--accent-soft);border:1.5px solid var(--accent)"></i>العمود: من الانبساطي (لتحت) حتى الانقباضي (لفوق)</span><span style="color:var(--bad)">- - 140 / 90</span>':
+  '<span><i style="background:var(--accent)"></i>الانقباضي (الفوق)</span><span><i style="background:var(--gold)"></i>الانبساطي (التحت)</span><span style="color:var(--bad)">- - 140 / 90</span>'}
 function renderBp(){
   let h='<div class="top"><div class="toprow"><h1>الضغط ديال ILY 💎♥️</h1></div>'+
     (S.bp.length?'<div class="seg r4">'+BPR.map(x=>'<button class="'+(S.bpRange===x[0]?"on":"")+'" data-bprange="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>':'')+'</div>';
@@ -193,7 +203,8 @@ function renderBp(){
   h+='<div class="sec">';
   if(st){const c=bpCat(st);h+='<div class="panel"><h3>📊 المعدل ('+st.days.length+' أيام · '+st.n+' قياس)</h3><div class="bpsum"><span class="bpv">'+st.sys+'/'+st.dia+'</span><small>mmHg'+(st.pulse?' · نبض '+st.pulse:'')+'</small><span class="cat '+c[0]+'">'+c[1]+'</span></div>'+
     (st.slots.filter(Boolean).length>1?'<div class="slots">'+st.slots.map((a,i)=>a?'<div><span>'+SLOTS[i][0]+' '+SLOTS[i][1]+'</span><b class="bpv">'+bpStr(a)+'</b><small>'+a.n+' قياس</small></div>':'').join("")+'</div>':'')+
-    bpChart(rows)+(rows.length>1?'<div class="legend"><span><i style="background:var(--accent)"></i>الانقباضي (الفوق)</span><span><i style="background:var(--gold)"></i>الانبساطي (التحت)</span><span style="color:var(--bad)">- - 140 / 90</span></div><p class="hint" style="margin:0">كل نقطة كبيرة هي معدل النهار، والنقط الخفاف هما القياسات ديال داك النهار.</p>':'')+'</div>';}
+    (rows.length>1?'<div class="cseg"><button class="'+(S.chart!=="bar"?"on":"")+'" data-bpchart="line">〰️ خطوط</button><button class="'+(S.chart==="bar"?"on":"")+'" data-bpchart="bar">📊 عواميد</button></div>':'')+
+    bpChart(rows)+(rows.length>1?'<div class="legend">'+chartKey()+'</div><p class="hint" style="margin:0">'+(S.chart==="bar"?'كل عمود هو معدل النهار.':'كل نقطة هي معدل النهار، والنقط الخفاف هما القياسات ديال داك النهار.')+'</p>':'')+'</div>';}
   h+='<button class="btn" data-bprep="1">🖨️ الورقة ديال الطبيب</button>';
   if(!rows.length)h+='<div class="empty">ما كاين حتى قياس ف هاد المدة.</div>';
   h+='<div class="list">';
@@ -209,7 +220,7 @@ function bpReportHtml(rows){
   h+='<p class="meta">Période : '+frDate(d0)+' → '+frDate(d1)+' · '+st.days.length+' jours · '+st.n+' mesures</p>';
   h+='<p class="meta"><b>Moyenne : '+st.sys+'/'+st.dia+' mmHg</b>'+(st.pulse?' · Pouls : '+st.pulse+' bpm':'')+' <small>(moyenne des moyennes journalières)</small></p>';
   h+='<p class="meta">'+st.slots.map((a,i)=>a?SLOTS[i][2]+' : '+bpStr(a)+' ('+a.n+')':'').filter(Boolean).join(' · ')+' · Mesures ≥ 140/90 : '+st.hi+'/'+st.n+' ('+Math.round(100*st.hi/st.n)+' %)</p>';
-  if(st.n>1)h+=bpChart(rows)+'<div class="key"><span><i style="background:#111"></i>Systolique</span><span><i style="background:#888"></i>Diastolique</span><span><i style="background:#b00020"></i>140 / 90</span><span>● moyenne du jour</span></div>';
+  if(st.n>1)h+=bpChart(rows)+'<div class="key">'+(S.chart==="bar"?'<span>▮ moyenne du jour : diastolique (bas) → systolique (haut)</span>':'<span><i style="background:#111"></i>Systolique</span><span><i style="background:#888"></i>Diastolique</span><span>● moyenne du jour</span>')+'<span><i style="background:#b00020"></i>140 / 90</span></div>';
   h+='<h3 class="rh">Résumé par jour</h3><div class="tw"><table><thead><tr><th>Date</th><th>Mes.</th><th>Matin</th><th>Après-midi</th><th>Soir</th><th>Moyenne</th><th>Max</th></tr></thead><tbody>';
   for(const d of st.days)h+='<tr><td style="white-space:nowrap">'+frDate(d.date).slice(0,5)+'</td><td>'+d.rows.length+'</td>'+d.slots.map(a=>'<td>'+cell(a)+'</td>').join("")+'<td><b>'+cell(d.avg)+'</b></td><td>'+(d.rows.length>1?'<span class="'+(bpHigh(d.max)?"hi":"")+'">'+bpStr(d.max)+'</span>':'–')+'</td></tr>';
   h+='</tbody></table></div><h3 class="rh">Détail des mesures</h3><div class="tw"><table><thead><tr><th>Date</th><th>Heure</th><th>Sys.<br>الانقباضي</th><th>Dia.<br>الانبساطي</th><th>Pouls<br>النبض</th><th>Remarque<br>ملاحظة</th></tr></thead><tbody>';
@@ -289,6 +300,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||
   if(b.dataset.bpadd){openBp(null);return}
   if(b.dataset.bp){openBp(b.dataset.bp);return}
   if(b.dataset.bprange!=null){S.bpRange=+b.dataset.bprange;try{localStorage.setItem("dwa.bprange",S.bpRange)}catch(err){}render();return}
+  if(b.dataset.bpchart){S.chart=b.dataset.bpchart;try{localStorage.setItem("daght.chart",S.chart)}catch(err){}render();return}
   if(b.dataset.bprep){S.view="bprep";render();window.scrollTo(0,0);return}
   if(b.dataset.bpback){S.view="bp";render();return}
   if(b.dataset.bpprint){try{window.print()}catch(err){toast("الطبع ما خدامش هنا. خدي سكرين ولا صيفطي.")}return}
