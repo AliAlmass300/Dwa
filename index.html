@@ -272,6 +272,20 @@ html[data-layout="book"] .tabs button.on::after{content:"";display:block;width:5
 .chart text{font-size:11px;fill:var(--muted);font-family:var(--body)}
 .seg.r4{grid-template-columns:repeat(4,1fr)}
 .big2{font-size:1.6rem;text-align:center;font-variant-numeric:tabular-nums;direction:ltr}
+.live{display:flex;align-items:center;justify-content:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.live .bpv{font-size:2.4rem;color:var(--accent);line-height:1}
+.wheels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.wcol{display:grid;gap:4px;text-align:center;font-size:.78rem;color:var(--muted);line-height:1.3}
+.wbox{position:relative}
+.wbox::after{content:"";position:absolute;inset-inline:6px;top:80px;height:40px;border-radius:10px;background:var(--accent-soft);z-index:0;pointer-events:none}
+.wheel{position:relative;z-index:1;height:200px;overflow-y:scroll;scroll-snap-type:y mandatory;border:1px solid var(--line);border-radius:14px;scrollbar-width:none;overscroll-behavior:contain;-webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.wheel::-webkit-scrollbar{display:none}
+.wheel .sp{height:80px}
+.wi{height:40px;display:grid;place-items:center;scroll-snap-align:center;font-family:var(--display);font-size:1.3rem;font-variant-numeric:tabular-nums;color:var(--muted);cursor:pointer;user-select:none}
+.wi.on{color:var(--accent);font-size:1.75rem;font-weight:700}
+.nchips{display:flex;flex-wrap:wrap;gap:6px}
+.nchips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:.85rem;color:var(--ink)}
+.nchips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 /* doctor report */
 .rep{background:#fff;color:#111;border-radius:var(--r);padding:16px;margin-top:12px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;line-height:1.4}
 .rep h2{font-family:inherit;font-size:1.2rem;margin:0 0 2px}
@@ -551,7 +565,7 @@ function bpChart(rows){ // rows newest first; drawn oldest → newest, left to r
   g+='<text x="'+L+'" y="'+(H-6)+'">'+frDate(r[0].date).slice(0,5)+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end">'+frDate(r[r.length-1].date).slice(0,5)+'</text>';
   return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="رسم ديال الضغط">'+g+'</svg>'}
 function renderBp(){
-  let h='<div class="top"><div class="toprow"><h1>الضغط ديالي</h1><button class="btn small" data-bpadd="1">+ قياس جديد</button></div>'+
+  let h='<div class="top"><div class="toprow"><h1>الضغط ديال ILY 💎♥️</h1><button class="btn small" data-bpadd="1">+ قياس جديد</button></div>'+
     (S.bp.length?'<div class="seg r4">'+BPR.map(x=>'<button class="'+(S.bpRange===x[0]?"on":"")+'" data-bprange="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>':'')+'</div>';
   if(!S.bp.length){app.innerHTML=h+'<div class="empty"><div style="font-size:2rem">🩺</div><div>ما زال ما سجلتي حتى قياس.</div><div class="hint">قيسي الضغط وكتبي الرقم الفوقاني (الانقباضي) والتحتاني (الانبساطي)، والنبض إلا بغيتي. من بعد تقدري تطبعي الجدول ولا تصيفطيه للطبيب.</div><button class="btn" data-bpadd="1">زيد قياس</button></div>';return}
   const rows=bpRows(),a=bpAvg(rows);
@@ -567,7 +581,7 @@ function renderBp(){
   app.innerHTML=h}
 function bpReportHtml(rows){
   const asc=rows.slice().reverse(),a=bpAvg(rows),hi=rows.filter(bpHigh).length;
-  let h='<div class="rep" dir="ltr" lang="fr"><h2>Relevé de tension artérielle <span dir="rtl" lang="ar" style="font-weight:500">· جدول قياس الضغط</span></h2>';
+  let h='<div class="rep" dir="ltr" lang="fr"><h2>Relevé de tension artérielle <span dir="rtl" lang="ar" style="font-weight:500">· جدول قياس الضغط</span></h2><p class="meta"><b>ILY 💎♥️</b></p>';
   if(asc.length)h+='<p class="meta">Période : '+frDate(asc[0].date)+' → '+frDate(asc[asc.length-1].date)+' · '+rows.length+' mesures</p>';
   if(a)h+='<p class="meta"><b>Moyenne : '+a.sys+'/'+a.dia+' mmHg</b>'+(a.pulse?' · Pouls moyen : '+a.pulse+' bpm':'')+' · Mesures ≥ 140/90 : '+hi+'</p>';
   if(asc.length>1)h+=bpChart(rows)+'<div class="key"><span><i style="background:#111"></i>Systolique</span><span><i style="background:#888"></i>Diastolique</span><span><i style="background:#b00020"></i>140 / 90</span></div>';
@@ -576,12 +590,12 @@ function bpReportHtml(rows){
   return h+'</tbody></table></div><p class="meta" style="margin-top:8px;font-size:11px">mmHg · Valeurs en gras rouge : ≥ 140 systolique ou ≥ 90 diastolique.</p></div>'}
 function renderBpReport(){
   const rows=bpRows();
-  let h='<div class="top noprint"><div class="toprow"><button class="iconbtn" data-bpback="1" aria-label="رجع">›</button><h1 style="flex:1">ورقة الطبيب</h1></div><div class="seg r4">'+BPR.map(x=>'<button class="'+(S.bpRange===x[0]?"on":"")+'" data-bprange="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>'+
+  let h='<div class="top noprint"><div class="toprow"><button class="iconbtn" data-bpback="1" aria-label="رجع">›</button><h1 style="flex:1">ورقة الطبيب · ILY 💎♥️</h1></div><div class="seg r4">'+BPR.map(x=>'<button class="'+(S.bpRange===x[0]?"on":"")+'" data-bprange="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>'+
     '<div class="actions"><button class="btn" data-bpprint="1" style="flex:1">🖨️ طبع / PDF</button><button class="btn ghost" data-bpshare="1" style="flex:1">📤 صيفط</button><button class="btn ghost" data-bpcsv="1">Excel</button></div>'+
     '<p class="hint" style="margin:0">ف الآيفون: "طبع" كيحل ورقة، تقدري تطبعيها ولا تسجليها PDF من زر المشاركة. ولا غير ورّي هاد الصفحة للطبيب ولا خدي ليها سكرين.</p></div>';
   app.innerHTML=h+(rows.length?bpReportHtml(rows):'<div class="empty">ما كاين حتى قياس ف هاد المدة.</div>')}
 function bpText(rows){const asc=rows.slice().reverse(),a=bpAvg(rows);
-  return "Tension artérielle / جدول الضغط\n"+(a?"Moyenne: "+a.sys+"/"+a.dia+" mmHg"+(a.pulse?" · Pouls "+a.pulse:"")+"\n":"")+"\n"+
+  return "Tension artérielle / جدول الضغط · ILY 💎♥️\n"+(a?"Moyenne: "+a.sys+"/"+a.dia+" mmHg"+(a.pulse?" · Pouls "+a.pulse:"")+"\n":"")+"\n"+
     asc.map(r=>frDate(r.date)+" "+r.time+"  "+r.sys+"/"+r.dia+(r.pulse?"  P "+r.pulse:"")+(r.note?"  · "+r.note:"")).join("\n")}
 function bpCsv(rows){const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
   return "﻿"+["Date;Heure;Systolique;Diastolique;Pouls;Remarque"].concat(rows.slice().reverse().map(r=>[frDate(r.date),r.time,r.sys,r.dia,r.pulse||"",q(r.note||"")].join(";"))).join("\r\n")}
@@ -593,18 +607,34 @@ async function bpShare(){const rows=bpRows();if(!rows.length)return toast("ما 
   try{await navigator.clipboard.writeText(text);toast("تكوبى. لصقيه ف واتساب ولا ميساج.")}catch(e){toast("ما قدرتش نصيفط من هنا. طبعي ولا خدي سكرين.")}}
 let B=null;
 function openBp(id){const r=id?S.bp.find(x=>x.id===id):null,d=new Date();
-  B=r?{...r,pulse:r.pulse??""}:{id:"b"+Date.now().toString(36),date:todayIso(),time:pad(d.getHours())+":"+pad(d.getMinutes()),sys:"",dia:"",pulse:"",note:""};
-  B.isNew=!r;B.confirmDel=false;drawBp();sheet.hidden=false;sheet.scrollTop=0;if(!r)setTimeout(()=>{const el=document.getElementById("bp-sys");el&&el.focus()},50)}
-function bpRead(){for(const k of["date","time","sys","dia","pulse","note"]){const el=document.getElementById("bp-"+k);if(el)B[k]=el.value}}
+  const last=S.bp.slice().sort((a,b)=>bpKey(b).localeCompare(bpKey(a)))[0];
+  B=r?{...r,sys:String(r.sys),dia:String(r.dia),pulse:r.pulse==null?"":String(r.pulse)}:{id:"b"+Date.now().toString(36),date:todayIso(),time:pad(d.getHours())+":"+pad(d.getMinutes()),sys:String(last?last.sys:120),dia:String(last?last.dia:80),pulse:last&&last.pulse?String(last.pulse):"",note:""};
+  B.isNew=!r;B.confirmDel=false;sheet.hidden=false;drawBp();sheet.scrollTop=0}
+function bpRead(){for(const k of["date","time","note"]){const el=document.getElementById("bp-"+k);if(el)B[k]=el.value}}
 function drawBp(){
   let h='<div class="inner"><div class="toprow"><h1>'+(B.isNew?"قياس جديد":"بدل القياس")+'</h1><button class="iconbtn" data-close="1" aria-label="سد">✕</button></div>';
   h+='<div class="row2"><label class="f">النهار<input class="inp" type="date" id="bp-date" value="'+esc(B.date)+'"></label><label class="f">الساعة<input class="inp" type="time" id="bp-time" value="'+esc(B.time)+'"></label></div>';
-  h+='<div class="row2"><label class="f">الانقباضي (الرقم الفوقاني)<input class="inp big2" id="bp-sys" inputmode="numeric" pattern="[0-9]*" placeholder="120" value="'+esc(B.sys)+'"></label><label class="f">الانبساطي (الرقم التحتاني)<input class="inp big2" id="bp-dia" inputmode="numeric" pattern="[0-9]*" placeholder="80" value="'+esc(B.dia)+'"></label></div>';
-  h+='<label class="f">النبض (اختياري)<input class="inp" id="bp-pulse" inputmode="numeric" pattern="[0-9]*" placeholder="مثلا: 72" value="'+esc(B.pulse)+'"></label>';
-  h+='<label class="f">ملاحظة (اختياري)<input class="inp" id="bp-note" value="'+esc(B.note||"")+'" placeholder="مثلا: قبل الدوا، فايقة دابا، عيانة…"></label>';
-  h+='<div class="hint">الجهاز كيبين جوج أرقام: الكبير هو الانقباضي (SYS) والصغير هو الانبساطي (DIA)، والنبض (PUL).</div>';
+  h+='<div class="live" id="bp-live"></div>';
+  h+='<div class="wheels">'+[["sys","الانقباضي","SYS · الفوقاني"],["dia","الانبساطي","DIA · التحتاني"],["pulse","النبض","PUL · اختياري"]].map(w=>'<div class="wcol"><b style="color:var(--ink)">'+w[1]+'</b><span>'+w[2]+'</span><div class="wbox">'+wheel(w[0])+'</div></div>').join("")+'</div>';
+  h+='<div class="hint" style="text-align:center">حركي العجلة بصبعك ولا ورّكي على الرقم.</div>';
+  h+='<div class="nchips">'+BPNOTES.map(n=>'<button type="button" class="'+((B.note||"").includes(n)?"on":"")+'" data-bpnote="'+esc(n)+'">'+esc(n)+'</button>').join("")+'</div>';
+  h+='<label class="f">ملاحظة (اختياري)<input class="inp" id="bp-note" value="'+esc(B.note||"")+'" placeholder="ولا كتبي شي حاجة أخرى…"></label>';
   h+='<div id="err" class="alert low" hidden></div><div class="actions"><button class="btn" data-bpsave="1" style="flex:1">سجل</button>'+(B.isNew?'':'<button class="btn danger" data-bpdel="1">'+(B.confirmDel?"متأكدة؟ ورك باش تمسح":"مسح")+'</button>')+'</div></div>';
-  sheet.innerHTML=h}
+  sheet.innerHTML=h;
+  for(const k of["sys","dia","pulse"])wheelInit(k);bpLive()}
+const BPNOTES=["فالصباح","فالليل","قبل الدوا","من بعد الدوا","عيانة","مقلقة","من بعد المشي","صداع"];
+const WR={sys:[70,250],dia:[40,150],pulse:[40,180]},WH=40;
+function wheel(k){const[a,b]=WR[k];let h='<div class="wheel" id="w-'+k+'" role="listbox" aria-label="'+k+'"><div class="sp"></div>'+(k==="pulse"?'<div class="wi" data-v="">—</div>':'');
+  for(let v=a;v<=b;v++)h+='<div class="wi" data-v="'+v+'">'+v+'</div>';return h+'<div class="sp"></div></div>'}
+function wheelInit(k){const el=document.getElementById("w-"+k),items=[...el.querySelectorAll(".wi")];
+  let i=items.findIndex(x=>x.dataset.v===String(B[k]));if(i<0)i=k==="pulse"?0:items.findIndex(x=>x.dataset.v===(k==="sys"?"120":"80"));
+  const mark=j=>{items.forEach((x,n)=>x.classList.toggle("on",n===j));B[k]=items[j].dataset.v;bpLive()};
+  el.scrollTop=i*WH;mark(i);let t;
+  el.addEventListener("scroll",()=>{const j=Math.max(0,Math.min(items.length-1,Math.round(el.scrollTop/WH)));if(items[j].dataset.v!==B[k]){mark(j);try{navigator.vibrate&&navigator.vibrate(5)}catch(e){}}clearTimeout(t);t=setTimeout(()=>{if(Math.abs(el.scrollTop-j*WH)>1)el.scrollTo({top:j*WH,behavior:"smooth"})},140)},{passive:true});
+  el.addEventListener("click",e=>{const it=e.target.closest(".wi");if(!it)return;const j=items.indexOf(it);el.scrollTo({top:j*WH,behavior:"smooth"});mark(j)})}
+function bpLive(){const el=document.getElementById("bp-live");if(!el)return;const s=+B.sys,d=+B.dia;
+  if(!s||!d){el.innerHTML="";return}const c=bpCat({sys:s,dia:d});
+  el.innerHTML='<span class="bpv">'+s+'/'+d+'</span><div style="display:grid;gap:4px;justify-items:start"><span class="cat '+c[0]+'">'+c[1]+'</span>'+(B.pulse?'<small class="hint">💓 '+esc(B.pulse)+'</small>':'')+'</div>'}
 function bpStore(){try{localStorage.setItem("dwa.bp",JSON.stringify(S.bp))}catch(e){toast("ما قدرتش نسجل ف هاد التليفون.");return false}return true}
 async function bpSave(){bpRead();
   const n=x=>{const v=String(x).replace(/[٠-٩]/g,c=>"٠١٢٣٤٥٦٧٨٩".indexOf(c)).trim();return /^\d{2,3}$/.test(v)?+v:NaN};
@@ -653,6 +683,8 @@ sheet.addEventListener("click",async e=>{const b=e.target.closest("button");if(!
   if(b.dataset.close){sheet.hidden=true;return}
   if(b.dataset.bpsave){bpSave();return}
   if(b.dataset.bpdel){bpDelete();return}
+  if(b.dataset.bpnote!=null){bpRead();const n=b.dataset.bpnote,parts=(B.note||"").split("، ").map(x=>x.trim()).filter(Boolean);const i=parts.indexOf(n);if(i<0)parts.push(n);else parts.splice(i,1);B.note=parts.join("، ");
+    b.classList.toggle("on",i<0);const inp=document.getElementById("bp-note");if(inp)inp.value=B.note;return}
   if(b.dataset.adddose){const s=E.steps[+b.dataset.adddose];const l=s.doses[s.doses.length-1];s.doses.push({time:"20:00",amount:l?l.amount:"1",unit:l?l.unit:"حبة"});drawEditor();return}
   if(b.dataset.deldose){const[i,j]=b.dataset.deldose.split("-").map(Number);E.steps[i].doses.splice(j,1);drawEditor();return}
   if(b.dataset.delstep){E.steps.splice(+b.dataset.delstep,1);drawEditor();return}
