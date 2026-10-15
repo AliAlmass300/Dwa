@@ -88,6 +88,14 @@ label.f{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
 .nchips{display:flex;flex-wrap:wrap;gap:6px}
 .nchips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:.85rem;color:var(--ink)}
 .nchips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px}
+.slots div{background:var(--bg);border-radius:10px;padding:6px 8px;display:grid;gap:0;font-size:.78rem;color:var(--muted)}
+.slots b{font-size:1.15rem;color:var(--ink)}
+.dayhd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:6px}
+.dayhd h3{font-size:.95rem;color:var(--muted)}.dayhd span{font-size:.8rem;color:var(--muted)}.dayhd .bpv{font-size:.95rem;color:var(--accent)}
+.rep .rh{font-family:inherit;font-size:.95rem;margin:12px 0 0}
+.rep small{color:#666;font-size:10px}
+.rep tr.d0 td{border-top:2px solid #888}
 /* doctor report */
 .rep{background:#fff;color:#111;border-radius:var(--r);padding:16px;margin-top:12px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;line-height:1.4}
 .rep h2{font-family:inherit;font-size:1.2rem;margin:0 0 2px}
@@ -152,53 +160,73 @@ const frDate=s=>{const[y,m,d]=s.split("-");return d+"/"+m+"/"+y};
 const BPR=[[7,"7 أيام"],[30,"شهر"],[90,"3 شهور"],[0,"كلشي"]];
 function bpRows(){const from=S.bpRange?addDays(todayIso(),-S.bpRange+1):"";return S.bp.filter(r=>r.date>=from).sort((a,b)=>bpKey(b).localeCompare(bpKey(a)))}
 function bpAvg(rows){if(!rows.length)return null;const av=k=>{const v=rows.map(r=>r[k]).filter(x=>typeof x==="number");return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null};
-  return{sys:av("sys"),dia:av("dia"),pulse:av("pulse")}}
-function bpChart(rows){ // rows newest first; drawn oldest → newest, left to right
-  const r=rows.slice().reverse();if(r.length<2)return"";
+  return{sys:av("sys"),dia:av("dia"),pulse:av("pulse"),n:rows.length}}
+// Several readings a day: each day is averaged first, then days are averaged, so a day with 5 readings counts the same as a day with 1.
+const SLOTS=[["☀️","الصباح","Matin"],["🌤","العشية","Après-midi"],["🌙","الليل","Soir"]];
+const slotOf=t=>{const h=+t.slice(0,2);return h<12?0:h<18?1:2};
+function bpDays(rows){const m={};for(const r of rows)(m[r.date]=m[r.date]||[]).push(r);
+  return Object.keys(m).sort().map(date=>{const rs=m[date].sort((a,b)=>a.time.localeCompare(b.time));
+    return{date,rows:rs,avg:bpAvg(rs),max:rs.reduce((a,b)=>b.sys>a.sys||(b.sys===a.sys&&b.dia>a.dia)?b:a),slots:[0,1,2].map(i=>bpAvg(rs.filter(r=>slotOf(r.time)===i)))}})}
+function bpStats(rows){const days=bpDays(rows);if(!days.length)return null;
+  const mean=k=>{const v=days.map(d=>d.avg[k]).filter(x=>typeof x==="number");return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null};
+  return{days,sys:mean("sys"),dia:mean("dia"),pulse:mean("pulse"),n:rows.length,hi:rows.filter(bpHigh).length,slots:[0,1,2].map(i=>bpAvg(rows.filter(r=>slotOf(r.time)===i)))}}
+const bpStr=a=>a?a.sys+"/"+a.dia:"";
+function bpChart(rows){ // one point per day (the day's average); each single reading is a faint dot on that day
+  const days=bpDays(rows);if(rows.length<2)return"";
   const W=320,H=150,L=30,R=8,Tp=8,B=22;
-  const vals=r.flatMap(x=>[x.sys,x.dia]),lo=Math.min(50,Math.floor(Math.min(...vals)/10)*10),hi=Math.max(160,Math.ceil(Math.max(...vals)/10)*10);
-  const X=i=>L+(W-L-R)*(r.length===1?.5:i/(r.length-1)),Y=v=>Tp+(H-Tp-B)*(1-(v-lo)/(hi-lo));
+  const vals=rows.flatMap(x=>[x.sys,x.dia]),lo=Math.min(50,Math.floor(Math.min(...vals)/10)*10),hi=Math.max(160,Math.ceil(Math.max(...vals)/10)*10);
+  const X=i=>L+(W-L-R)*(days.length===1?.5:i/(days.length-1)),Y=v=>Tp+(H-Tp-B)*(1-(v-lo)/(hi-lo));
   let g="";for(let v=lo;v<=hi;v+=hi-lo>120?40:20)g+='<line class="g" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text x="'+(L-4)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>';
   g+='<line class="lim" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(140)+'" y2="'+Y(140)+'"/><line class="lim" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(90)+'" y2="'+Y(90)+'"/>';
-  const line=(k,c)=>'<polyline class="'+c+'" points="'+r.map((x,i)=>X(i).toFixed(1)+","+Y(x[k]).toFixed(1)).join(" ")+'"/>'+(r.length<=40?r.map((x,i)=>'<circle class="'+c+'p" cx="'+X(i).toFixed(1)+'" cy="'+Y(x[k]).toFixed(1)+'" r="2.6"/>').join(""):"");
+  const few=days.length<=45;
+  const line=(k,c)=>(few?days.map((d,i)=>d.rows.length>1?d.rows.map(r=>'<circle class="'+c+'p" opacity=".3" cx="'+X(i).toFixed(1)+'" cy="'+Y(r[k]).toFixed(1)+'" r="2"/>').join(""):"").join(""):"")+
+    (days.length>1?'<polyline class="'+c+'" points="'+days.map((d,i)=>X(i).toFixed(1)+","+Y(d.avg[k]).toFixed(1)).join(" ")+'"/>':"")+
+    (few?days.map((d,i)=>'<circle class="'+c+'p" cx="'+X(i).toFixed(1)+'" cy="'+Y(d.avg[k]).toFixed(1)+'" r="3"/>').join(""):"");
   g+=line("sys","s")+line("dia","d");
-  g+='<text x="'+L+'" y="'+(H-6)+'">'+frDate(r[0].date).slice(0,5)+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end">'+frDate(r[r.length-1].date).slice(0,5)+'</text>';
+  g+='<text x="'+L+'" y="'+(H-6)+'">'+frDate(days[0].date).slice(0,5)+'</text>'+(days.length>1?'<text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end">'+frDate(days[days.length-1].date).slice(0,5)+'</text>':'');
   return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="رسم ديال الضغط">'+g+'</svg>'}
 function renderBp(){
   let h='<div class="top"><div class="toprow"><h1>الضغط ديال ILY 💎♥️</h1></div>'+
     (S.bp.length?'<div class="seg r4">'+BPR.map(x=>'<button class="'+(S.bpRange===x[0]?"on":"")+'" data-bprange="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>':'')+'</div>';
-  if(!S.bp.length){app.innerHTML=h+'<div class="empty"><div style="font-size:2rem">🩺</div><div>ما زال ما سجلتي حتى قياس.</div><div class="hint">قيسي الضغط وكتبي الرقم الفوقاني (الانقباضي) والتحتاني (الانبساطي)، والنبض إلا بغيتي. من بعد تقدري تطبعي الجدول ولا تصيفطيه للطبيب.</div><button class="btn" data-bpadd="1">زيد قياس</button></div>';return}
-  const rows=bpRows(),a=bpAvg(rows);
+  if(!S.bp.length){app.innerHTML=h+'<div class="empty"><div style="font-size:2rem">🩺</div><div>ما زال ما سجلتي حتى قياس.</div><div class="hint">قيسي الضغط وختاري الرقم الفوقاني (الانقباضي) والتحتاني (الانبساطي)، والنبض إلا بغيتي. تقدري تسجلي بزاف ديال القياسات ف النهار. من بعد تقدري تطبعي الجدول ولا تصيفطيه للطبيب.</div><button class="btn" data-bpadd="1">زيد قياس</button></div>';return}
+  const rows=bpRows(),st=bpStats(rows);
   h+='<div class="sec">';
-  if(a){const c=bpCat(a);h+='<div class="panel"><h3>📊 المعدل ('+rows.length+' قياس)</h3><div class="bpsum"><span class="bpv">'+a.sys+'/'+a.dia+'</span><small>mmHg'+(a.pulse?' · نبض '+a.pulse:'')+'</small><span class="cat '+c[0]+'">'+c[1]+'</span></div>'+bpChart(rows)+
-    (rows.length>1?'<div class="legend"><span><i style="background:var(--accent)"></i>الانقباضي (الفوق)</span><span><i style="background:var(--gold)"></i>الانبساطي (التحت)</span><span style="color:var(--bad)">- - 140 / 90</span></div>':'')+'</div>';}
+  if(st){const c=bpCat(st);h+='<div class="panel"><h3>📊 المعدل ('+st.days.length+' أيام · '+st.n+' قياس)</h3><div class="bpsum"><span class="bpv">'+st.sys+'/'+st.dia+'</span><small>mmHg'+(st.pulse?' · نبض '+st.pulse:'')+'</small><span class="cat '+c[0]+'">'+c[1]+'</span></div>'+
+    (st.slots.filter(Boolean).length>1?'<div class="slots">'+st.slots.map((a,i)=>a?'<div><span>'+SLOTS[i][0]+' '+SLOTS[i][1]+'</span><b class="bpv">'+bpStr(a)+'</b><small>'+a.n+' قياس</small></div>':'').join("")+'</div>':'')+
+    bpChart(rows)+(rows.length>1?'<div class="legend"><span><i style="background:var(--accent)"></i>الانقباضي (الفوق)</span><span><i style="background:var(--gold)"></i>الانبساطي (التحت)</span><span style="color:var(--bad)">- - 140 / 90</span></div><p class="hint" style="margin:0">كل نقطة كبيرة هي معدل النهار، والنقط الخفاف هما القياسات ديال داك النهار.</p>':'')+'</div>';}
   h+='<button class="btn" data-bprep="1">🖨️ الورقة ديال الطبيب</button>';
   if(!rows.length)h+='<div class="empty">ما كاين حتى قياس ف هاد المدة.</div>';
-  let last="";h+='<div class="list">';
-  for(const r of rows){if(r.date!==last){last=r.date;h+='<h3 style="font-size:.95rem;color:var(--muted);margin-top:6px">'+fmtDay(r.date)+'</h3>'}
-    const c=bpCat(r);h+='<button class="bpr" data-bp="'+r.id+'"><span class="bpv">'+r.sys+'/'+r.dia+'</span><div style="min-width:0"><div>'+T(r.time)+(r.pulse?' · 💓 '+r.pulse:'')+'</div>'+(r.note?'<div class="hint">'+esc(r.note)+'</div>':'')+'</div><span class="cat '+c[0]+'">'+c[1]+'</span></button>'}
-  h+='</div><p class="hint">التصنيف غير باش تعرفي تقريبا. الطبيب هو اللي كيقرر.'+' القياسات كيتسجلو ف هاد التليفون بوحدو.'+'</p></div>';
+  h+='<div class="list">';
+  for(const d of (st?st.days.slice().reverse():[])){
+    h+='<div class="dayhd"><h3>'+fmtDay(d.date)+'</h3>'+(d.rows.length>1?'<span>معدل النهار <b class="bpv">'+bpStr(d.avg)+'</b> · '+d.rows.length+' قياسات</span>':'')+'</div>';
+    for(const r of d.rows.slice().reverse()){const c=bpCat(r);h+='<button class="bpr" data-bp="'+r.id+'"><span class="bpv">'+r.sys+'/'+r.dia+'</span><div style="min-width:0"><div>'+SLOTS[slotOf(r.time)][0]+' '+T(r.time)+(r.pulse?' · 💓 '+r.pulse:'')+'</div>'+(r.note?'<div class="hint">'+esc(r.note)+'</div>':'')+'</div><span class="cat '+c[0]+'">'+c[1]+'</span></button>'}}
+  h+='</div><p class="hint">المعدل كيتحسب لكل نهار بوحدو، ومن بعد كنجمعو الأيام، باش النهار اللي فيه بزاف ديال القياسات ما يغلبش على الباقي. التصنيف غير باش تعرفي تقريبا، الطبيب هو اللي كيقرر. القياسات كيتسجلو ف هاد التليفون بوحدو.</p></div>';
   app.innerHTML=h}
 function bpReportHtml(rows){
-  const asc=rows.slice().reverse(),a=bpAvg(rows),hi=rows.filter(bpHigh).length;
+  const st=bpStats(rows),hc=v=>v>=140?"hi":"",hd=v=>v>=90?"hi":"",cell=a=>a?'<span class="'+(a.sys>=140||a.dia>=90?"hi":"")+'">'+bpStr(a)+'</span>'+(a.n>1?'<small> ×'+a.n+'</small>':''):'–';
+  const d0=st.days[0].date,d1=st.days[st.days.length-1].date;
   let h='<div class="rep" dir="ltr" lang="fr"><h2>Relevé de tension artérielle <span dir="rtl" lang="ar" style="font-weight:500">· جدول قياس الضغط</span></h2><p class="meta"><b>ILY 💎♥️</b></p>';
-  if(asc.length)h+='<p class="meta">Période : '+frDate(asc[0].date)+' → '+frDate(asc[asc.length-1].date)+' · '+rows.length+' mesures</p>';
-  if(a)h+='<p class="meta"><b>Moyenne : '+a.sys+'/'+a.dia+' mmHg</b>'+(a.pulse?' · Pouls moyen : '+a.pulse+' bpm':'')+' · Mesures ≥ 140/90 : '+hi+'</p>';
-  if(asc.length>1)h+=bpChart(rows)+'<div class="key"><span><i style="background:#111"></i>Systolique</span><span><i style="background:#888"></i>Diastolique</span><span><i style="background:#b00020"></i>140 / 90</span></div>';
-  h+='<div class="tw"><table><thead><tr><th>Date</th><th>Heure</th><th>Sys.<br>الانقباضي</th><th>Dia.<br>الانبساطي</th><th>Pouls<br>النبض</th><th>Remarque<br>ملاحظة</th></tr></thead><tbody>';
-  for(const r of asc)h+='<tr><td style="white-space:nowrap">'+frDate(r.date).replace(/\/(\d\d)(\d\d)$/,"/$2")+'</td><td>'+r.time+'</td><td class="'+(r.sys>=140?"hi":"")+'">'+r.sys+'</td><td class="'+(r.dia>=90?"hi":"")+'">'+r.dia+'</td><td>'+(r.pulse||"")+'</td><td class="n" dir="auto">'+esc(r.note||"")+'</td></tr>';
-  return h+'</tbody></table></div><p class="meta" style="margin-top:8px;font-size:11px">mmHg · Valeurs en gras rouge : ≥ 140 systolique ou ≥ 90 diastolique.</p></div>'}
+  h+='<p class="meta">Période : '+frDate(d0)+' → '+frDate(d1)+' · '+st.days.length+' jours · '+st.n+' mesures</p>';
+  h+='<p class="meta"><b>Moyenne : '+st.sys+'/'+st.dia+' mmHg</b>'+(st.pulse?' · Pouls : '+st.pulse+' bpm':'')+' <small>(moyenne des moyennes journalières)</small></p>';
+  h+='<p class="meta">'+st.slots.map((a,i)=>a?SLOTS[i][2]+' : '+bpStr(a)+' ('+a.n+')':'').filter(Boolean).join(' · ')+' · Mesures ≥ 140/90 : '+st.hi+'/'+st.n+' ('+Math.round(100*st.hi/st.n)+' %)</p>';
+  if(st.n>1)h+=bpChart(rows)+'<div class="key"><span><i style="background:#111"></i>Systolique</span><span><i style="background:#888"></i>Diastolique</span><span><i style="background:#b00020"></i>140 / 90</span><span>● moyenne du jour</span></div>';
+  h+='<h3 class="rh">Résumé par jour</h3><div class="tw"><table><thead><tr><th>Date</th><th>Mes.</th><th>Matin</th><th>Après-midi</th><th>Soir</th><th>Moyenne</th><th>Max</th></tr></thead><tbody>';
+  for(const d of st.days)h+='<tr><td style="white-space:nowrap">'+frDate(d.date).slice(0,5)+'</td><td>'+d.rows.length+'</td>'+d.slots.map(a=>'<td>'+cell(a)+'</td>').join("")+'<td><b>'+cell(d.avg)+'</b></td><td>'+(d.rows.length>1?'<span class="'+(bpHigh(d.max)?"hi":"")+'">'+bpStr(d.max)+'</span>':'–')+'</td></tr>';
+  h+='</tbody></table></div><h3 class="rh">Détail des mesures</h3><div class="tw"><table><thead><tr><th>Date</th><th>Heure</th><th>Sys.<br>الانقباضي</th><th>Dia.<br>الانبساطي</th><th>Pouls<br>النبض</th><th>Remarque<br>ملاحظة</th></tr></thead><tbody>';
+  for(const d of st.days)d.rows.forEach((r,i)=>{h+='<tr'+(i===0?' class="d0"':'')+'>'+(i===0?'<td rowspan="'+d.rows.length+'" style="white-space:nowrap">'+frDate(d.date).replace(/\/(\d\d)(\d\d)$/,"/$2")+'</td>':'')+'<td>'+r.time+'</td><td class="'+hc(r.sys)+'">'+r.sys+'</td><td class="'+hd(r.dia)+'">'+r.dia+'</td><td>'+(r.pulse||"")+'</td><td class="n" dir="auto">'+esc(r.note||"")+'</td></tr>'});
+  return h+'</tbody></table></div><p class="meta" style="margin-top:8px;font-size:11px">mmHg · Matin &lt; 12 h, Après-midi 12–18 h, Soir ≥ 18 h · ×n = nombre de mesures · En rouge : ≥ 140 systolique ou ≥ 90 diastolique.</p></div>'}
 function renderBpReport(){
   const rows=bpRows();
   let h='<div class="top noprint"><div class="toprow"><button class="iconbtn" data-bpback="1" aria-label="رجع">›</button><h1 style="flex:1">ورقة الطبيب · ILY 💎♥️</h1></div><div class="seg r4">'+BPR.map(x=>'<button class="'+(S.bpRange===x[0]?"on":"")+'" data-bprange="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>'+
     '<div class="actions"><button class="btn" data-bpprint="1" style="flex:1">🖨️ طبع / PDF</button><button class="btn ghost" data-bpshare="1" style="flex:1">📤 صيفط</button><button class="btn ghost" data-bpcsv="1">Excel</button></div>'+
     '<p class="hint" style="margin:0">ف الآيفون: "طبع" كيحل ورقة، تقدري تطبعيها ولا تسجليها PDF من زر المشاركة. ولا غير ورّي هاد الصفحة للطبيب ولا خدي ليها سكرين.</p></div>';
   app.innerHTML=h+(rows.length?bpReportHtml(rows):'<div class="empty">ما كاين حتى قياس ف هاد المدة.</div>')}
-function bpText(rows){const asc=rows.slice().reverse(),a=bpAvg(rows);
-  return "Tension artérielle / جدول الضغط · ILY 💎♥️\n"+(a?"Moyenne: "+a.sys+"/"+a.dia+" mmHg"+(a.pulse?" · Pouls "+a.pulse:"")+"\n":"")+"\n"+
-    asc.map(r=>frDate(r.date)+" "+r.time+"  "+r.sys+"/"+r.dia+(r.pulse?"  P "+r.pulse:"")+(r.note?"  · "+r.note:"")).join("\n")}
+function bpText(rows){const st=bpStats(rows);if(!st)return"";
+  return "Tension artérielle / جدول الضغط · ILY 💎♥️\n"+"Moyenne: "+st.sys+"/"+st.dia+" mmHg"+(st.pulse?" · Pouls "+st.pulse:"")+" ("+st.days.length+" jours, "+st.n+" mesures)\n"+
+    st.slots.map((a,i)=>a?SLOTS[i][2]+": "+bpStr(a):"").filter(Boolean).join(" · ")+"\n\n"+
+    st.days.map(d=>frDate(d.date).slice(0,5)+(d.rows.length>1?" (moy "+bpStr(d.avg)+")":"")+"\n"+d.rows.map(r=>"  "+r.time+"  "+r.sys+"/"+r.dia+(r.pulse?"  P "+r.pulse:"")+(r.note?"  · "+r.note:"")).join("\n")).join("\n")}
 function bpCsv(rows){const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  return "﻿"+["Date;Heure;Systolique;Diastolique;Pouls;Remarque"].concat(rows.slice().reverse().map(r=>[frDate(r.date),r.time,r.sys,r.dia,r.pulse||"",q(r.note||"")].join(";"))).join("\r\n")}
+  return "﻿"+["Date;Heure;Moment;Systolique;Diastolique;Pouls;Remarque"].concat(rows.slice().sort((a,b)=>bpKey(a).localeCompare(bpKey(b))).map(r=>[frDate(r.date),r.time,SLOTS[slotOf(r.time)][2],r.sys,r.dia,r.pulse||"",q(r.note||"")].join(";"))).join("\r\n")}
 function saveFile(name,blob){
   if(S.dl)return S.dl.save({filename:name,data:blob}).then(()=>toast("تسجل. حليه من Fichiers.")).catch(e=>{if(e&&e.code!=="declined")toast("ما تسجلش. عاود جرب.")});
   const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}
